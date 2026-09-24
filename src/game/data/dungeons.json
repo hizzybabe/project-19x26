@@ -1,0 +1,10 @@
+[
+  {"id":"greenwood","name":"Greenwood","rooms":[
+    {"name":"Overgrown Trail","kind":"combat","monsterIds":["moss-slime"]},
+    {"name":"Healing Fountain","kind":"event","monsterIds":[],"eventId":"healing-fountain"},
+    {"name":"Wolf Den","kind":"combat","monsterIds":["briar-wolf","briar-wolf-minion"]},
+    {"name":"Thornhide Grove","kind":"elite","monsterIds":["thornhide"]},
+    {"name":"Ancient Shrine","kind":"shrine","monsterIds":[],"eventId":"ancient-shrine"},
+    {"name":"Dire Alpha Lair","kind":"boss","monsterIds":["dire-alpha"]}
+  ]}
+]

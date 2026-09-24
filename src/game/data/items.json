@@ -1,0 +1,4 @@
+[
+  {"id":"starter-greatsword","name":"Recruit Greatsword","slot":"weapon","rarity":"Common","itemLevel":1,"weight":8,"weaponFactor":1.25,"enhancement":0,"bonusStr":0,"bonusVit":0,"value":29},
+  {"id":"starter-armor","name":"Padded Jerkin","slot":"armor","rarity":"Common","itemLevel":1,"weight":8,"armor":18,"enhancement":0,"bonusStr":0,"bonusVit":0,"value":27}
+]

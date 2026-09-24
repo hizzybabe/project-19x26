@@ -1,0 +1,4 @@
+[
+  {"id":"healing-fountain","name":"Healing Fountain","choices":["heal","potion"]},
+  {"id":"ancient-shrine","name":"Ancient Shrine","choices":["damage","armor"]}
+]
