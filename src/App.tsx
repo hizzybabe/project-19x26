@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createAudioAdapter, gameEvents } from './game/events'
 import {
-  addXp, advanceCombat, attributeSummaries, beginExpedition, createCombat, createNewGame,
-  derivedStats, itemWeight, loadGame, parseSaveJson, rollDrops, saveErrorMessage, saveGame, serializeSave, useAction, xpRequired,
-  greenwood, combatSkills, type CombatState, type GameState, type Item, type SkillId,
+  advanceCombat, attributeSummaries, beginExpedition, COMBAT_TICK_MS, continueExpedition, createCombat, createNewGame,
+  derivedStats, itemWeight, loadGame, parseSaveJson, resolveRoomDefeat, resolveRoomEvent, resolveRoomVictory,
+  retreatExpedition, saveErrorMessage, saveGame, serializeSave, useAction, xpRequired,
+  greenwood, combatSkills, type CombatState, type EventChoice, type GameState, type Item, type SkillId,
 } from './game'
 
 const attributeKeys = ['str', 'dex', 'vit', 'int', 'wis', 'luk'] as const
@@ -77,49 +78,19 @@ function App() {
 
   useEffect(() => {
     if (!combat || combat.status !== 'active') return
-    const timer = window.setInterval(() => setCombat((current) => current ? advanceCombat(current, 100, game.character, effectiveEquipment) : current), 100)
+    const timer = window.setInterval(() => setCombat((current) => current ? advanceCombat(current, COMBAT_TICK_MS, game.character, effectiveEquipment) : current), COMBAT_TICK_MS)
     return () => window.clearInterval(timer)
   }, [combat?.status, effectiveEquipment, game.character])
 
   useEffect(() => {
     if (!combat || !expedition || expedition.roomResolved || combat.status === 'active') return
     if (combat.status === 'lost') {
-      setGame((current) => {
-        const next = structuredClone(current)
-        const run = next.expedition!
-        const lostCount = Math.ceil(run.loot.length * 0.25)
-        next.inventory.push(...run.loot.slice(lostCount))
-        next.gold += Math.floor(run.earnedGold * 0.5)
-        next.records.deaths++
-        next.expedition = null
-        next.message = `Defeated. ${lostCount} item${lostCount === 1 ? '' : 's'} and half the expedition gold were lost.`
-        return next
-      })
+      setGame(resolveRoomDefeat)
       setCombat(null)
       gameEvents.emit({ type: 'player-defeated' })
       return
     }
-    const enemies = combat.enemies
-    const xp = enemies.reduce((sum, enemy) => sum + enemy.xp, 0)
-    const gold = enemies.reduce((sum, enemy) => sum + enemy.gold, 0)
-    const strongest = enemies.reduce((a, b) => a.maxHp > b.maxHp ? a : b)
-    const [drops, seed] = rollDrops(strongest.level, strongest.enemyClass, combat.seed, stats.itemRarityBonus)
-    setGame((current) => {
-      const next = structuredClone(current)
-      const run = next.expedition!
-      next.character = addXp(next.character, xp)
-      run.currentHp = combat.playerHp
-      run.currentMana = combat.playerMana
-      run.potionCharges = combat.potionCharges
-      run.earnedGold += gold
-      run.loot.push(...drops)
-      run.seed = seed
-      run.roomResolved = true
-      next.enhancementStones += strongest.enemyClass === 'Boss' ? 3 : strongest.enemyClass === 'Elite' ? 1 : 0
-      next.records.legendaryDrops += drops.filter((item) => item.rarity === 'Legendary').length
-      next.message = `Room cleared: +${xp} XP, +${gold} gold${drops.length ? `, ${drops.length} item${drops.length > 1 ? 's' : ''}` : ''}.`
-      return next
-    })
+    setGame((current) => resolveRoomVictory(current, combat))
     gameEvents.emit({ type: 'room-clear' })
   }, [combat, expedition])
 
@@ -129,71 +100,36 @@ function App() {
     gameEvents.emit({ type: 'dungeon-start' })
   }
 
-  function resolveEvent(choice: 'heal' | 'potion' | 'damage' | 'armor') {
-    setGame((current) => {
-      const next = structuredClone(current)
-      const run = next.expedition!
-      if (choice === 'heal') run.currentHp = Math.min(stats.maxHp, run.currentHp + Math.round(stats.maxHp * 0.3))
-      if (choice === 'potion') run.potionCharges++
-      if (choice === 'damage' || choice === 'armor') run.blessing = choice
-      run.roomResolved = true
-      next.message = choice === 'heal' ? 'The fountain restores 30% maximum HP.' : choice === 'potion' ? 'You bottle a temporary potion charge.' : `The shrine grants +${choice === 'damage' ? '15% damage' : '20% armor'} for this dungeon.`
-      return next
-    })
+  function resolveEvent(choice: EventChoice) {
+    setGame((current) => resolveRoomEvent(current, choice))
   }
 
   function continueDungeon() {
     if (!expedition) return
-    if (expedition.roomIndex === expedition.roomKinds.length - 1) {
-      setGame((current) => {
-        const next = structuredClone(current)
-        const run = next.expedition!
-        next.inventory.push(...run.loot)
-        next.gold += run.earnedGold
-        next.records.dungeonsCleared++
-        next.expedition = null
-        next.message = `Greenwood cleared! Extracted ${run.loot.length} items and ${run.earnedGold} gold.`
-        return next
-      })
-      setCombat(null)
-      gameEvents.emit({ type: 'dungeon-clear' })
-      return
-    }
-    setGame((current) => {
-      const next = structuredClone(current)
-      const run = next.expedition!
-      run.currentHp = Math.min(stats.maxHp, run.currentHp + Math.round(stats.maxHp * 0.02))
-      run.currentMana = Math.min(stats.maxMana, run.currentMana + Math.round(stats.maxMana * 0.06))
-      run.roomIndex++
-      run.roomResolved = false
-      next.message = `Entering room ${run.roomIndex + 1}.`
-      return next
-    })
+    const cleared = expedition.roomIndex === expedition.roomKinds.length - 1
+    setGame(continueExpedition)
     setCombat(null)
+    if (cleared) gameEvents.emit({ type: 'dungeon-clear' })
   }
 
   function retreat() {
     if (!expedition || (combat && combat.status === 'active')) return
-    setGame((current) => {
-      const next = structuredClone(current)
-      const run = next.expedition!
-      next.inventory.push(...run.loot)
-      next.gold += run.earnedGold
-      next.expedition = null
-      next.message = `Retreated safely with ${run.loot.length} items and ${run.earnedGold} gold.`
-      return next
-    })
+    setGame(retreatExpedition)
     setCombat(null)
   }
 
   function equipItem(item: Item, fromExpedition = false) {
     setGame((current) => {
+      const source = fromExpedition ? current.expedition?.loot : current.inventory
+      // Refuse the swap instead of splicing a missing index: splice(-1) would overwrite the last
+      // pack entry, and splice on an empty source would destroy the replaced equipment outright.
+      if (!source || !source.some((candidate) => candidate.id === item.id)) return current
       const next = structuredClone(current)
+      const target = fromExpedition ? next.expedition!.loot : next.inventory
+      const index = target.findIndex((candidate) => candidate.id === item.id)
       const old = next.equipment[item.slot]
       next.equipment[item.slot] = item
-      const source = fromExpedition ? next.expedition!.loot : next.inventory
-      const index = source.findIndex((candidate) => candidate.id === item.id)
-      source.splice(index, 1, old)
+      target.splice(index, 1, old)
       next.message = `${item.name} equipped.`
       return next
     })
@@ -317,7 +253,7 @@ function App() {
             <div className="room-progress">{expedition.roomKinds.map((_, index) => <span key={index} className={index < expedition.roomIndex ? 'done' : index === expedition.roomIndex ? 'current' : ''}>{index + 1}</span>)}</div>
             <h2>ROOM {expedition.roomIndex + 1}: {greenwood.rooms[expedition.roomIndex]?.name}</h2>
             {isCombatRoom && combat && <>
-              <div className="enemies">{combat.enemies.map((enemy) => <article key={enemy.id} className={enemy.hp <= 0 ? 'defeated' : ''}><div className="enemy-sprite" aria-hidden="true">{enemy.enemyClass === 'Boss' ? '♞' : enemy.name.includes('Wolf') ? '♟' : '♠'}</div><h3>{enemy.name}</h3><small>{enemy.enemyClass} · Lv {enemy.level}</small><Bar label={`${enemy.name} hit points`} value={enemy.hp} max={enemy.maxHp} />{enemy.telegraph && <strong className="telegraph" role="alert">⚠ {enemy.telegraph.name} {(enemy.telegraph.remainingMs / 1000).toFixed(1)}s</strong>}</article>)}</div>
+              <div className="enemies">{combat.enemies.map((enemy) => <article key={enemy.id} className={enemy.hp <= 0 ? 'defeated' : ''}><div className="enemy-sprite" aria-hidden="true">{enemy.glyph}</div><h3>{enemy.name}</h3><small>{enemy.enemyClass} · Lv {enemy.level}</small><Bar label={`${enemy.name} hit points`} value={enemy.hp} max={enemy.maxHp} />{enemy.telegraph && <strong className="telegraph" role="alert">⚠ {enemy.telegraph.name} {(enemy.telegraph.remainingMs / 1000).toFixed(1)}s</strong>}</article>)}</div>
               <div className="actions">
                 <button data-shortcut="1" onClick={() => performAction('heavy')} disabled={combat.playerMana < combatSkills.heavy.manaCost || combat.cooldowns.heavy > 0}>1 · HEAVY STRIKE<small>{combat.cooldowns.heavy > 0 ? `${Math.ceil(combat.cooldowns.heavy / 1000)}s` : `${combatSkills.heavy.manaCost} MP`}</small></button>
                 <button data-shortcut="2" onClick={() => performAction('cleave')} disabled={combat.playerMana < combatSkills.cleave.manaCost || combat.cooldowns.cleave > 0}>2 · CLEAVE<small>{combat.cooldowns.cleave > 0 ? `${Math.ceil(combat.cooldowns.cleave / 1000)}s` : `${combatSkills.cleave.manaCost} MP`}</small></button>

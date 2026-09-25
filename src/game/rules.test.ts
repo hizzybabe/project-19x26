@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { starterArmor, starterWeapon } from './content'
 import { advanceCombat, createCombat, useAction } from './combat'
-import { modifiedRarityWeights, rollItem } from './loot'
+import { modifiedRarityWeights, rollDrops, rollItem } from './loot'
 import {
   arcaneMitigation, baseWeaponDamage, derivedStats, enemyBaseHp, hitChance,
   mitigation, MIN_ATTACK_INTERVAL_MS, xpRequired,
@@ -164,6 +164,16 @@ describe('deterministic rarity and save compatibility', () => {
 
   it('produces the same complete item from a fixed loot seed', () => {
     expect(rollItem(12, 'Elite', 19026, 0.4)).toEqual(rollItem(12, 'Elite', 19026, 0.4))
+  })
+
+  it('derives generated items from the documented loot formulas', () => {
+    expect(rollItem(20, 'Boss', 5, 1.5)[0]).toEqual({
+      id: 'weapon-5-3472693697', name: 'Iron Greatsword of Vigor', slot: 'weapon', rarity: 'Uncommon',
+      itemLevel: 23, weight: 8, baseDamage: 132, enhancement: 0, bonusStr: 3, bonusVit: 0, value: 637,
+    })
+    expect(rollDrops(12, 'Normal', 3, 0)[0]).toEqual([
+      { id: 'armor-811107-1909268553', name: 'Forest Mail', slot: 'armor', rarity: 'Common', itemLevel: 12, weight: 12, armor: 35, enhancement: 0, bonusStr: 0, bonusVit: 0, value: 148 },
+    ])
   })
 
   it('loads an existing v1 save without derived fields or new runtime properties', () => {

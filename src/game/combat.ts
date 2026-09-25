@@ -71,12 +71,13 @@ export function advanceCombat(source: CombatState, deltaMs: number, character: C
   for (const enemy of combat.enemies) {
     if (enemy.hp <= 0 || combat.playerHp <= 0) continue
     enemy.attackTimerMs -= deltaMs
-    if (enemy.nextTelegraphMs !== undefined) {
+    if (enemy.nextTelegraphMs !== undefined && enemy.telegraphProfile) {
       enemy.nextTelegraphMs -= deltaMs
       if (enemy.nextTelegraphMs <= 0 && !enemy.telegraph) {
-        enemy.telegraph = { name: 'Savage Pounce', remainingMs: 3000, damageMultiplier: 2.2 }
-        enemy.nextTelegraphMs = 12000
-        addLog(combat, `${enemy.name} prepares Savage Pounce!`)
+        const { name, windupMs, damageMultiplier, intervalMs } = enemy.telegraphProfile
+        enemy.telegraph = { name, remainingMs: windupMs, damageMultiplier }
+        enemy.nextTelegraphMs = intervalMs
+        addLog(combat, `${enemy.name} prepares ${name}!`)
       }
     }
     if (enemy.telegraph) {

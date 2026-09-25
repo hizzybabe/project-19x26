@@ -35,12 +35,23 @@
     },
     "monster": {
       "type": "object", "additionalProperties": false,
-      "required": ["id", "name", "enemyClass", "levelOffset", "attackIntervalMs", "dodge"],
+      "required": ["id", "name", "enemyClass", "glyph", "levelOffset", "attackIntervalMs", "dodge"],
       "properties": {
         "id": {"$ref": "#/$defs/id"}, "name": {"type": "string", "minLength": 1},
         "enemyClass": {"enum": ["Minion", "Normal", "Veteran", "Elite", "Boss"]},
+        "glyph": {"type": "string", "minLength": 1},
         "levelOffset": {"type": "integer"}, "attackIntervalMs": {"type": "integer", "minimum": 1},
-        "dodge": {"type": "number", "minimum": 0, "maximum": 1}, "firstTelegraphMs": {"type": "integer", "minimum": 1}
+        "dodge": {"type": "number", "minimum": 0, "maximum": 1},
+        "telegraph": {"$ref": "#/$defs/telegraph"}
+      }
+    },
+    "telegraph": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "windupMs", "damageMultiplier", "intervalMs", "firstDelayMs"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1}, "windupMs": {"type": "integer", "minimum": 1},
+        "damageMultiplier": {"type": "number", "exclusiveMinimum": 0},
+        "intervalMs": {"type": "integer", "minimum": 1}, "firstDelayMs": {"type": "integer", "minimum": 1}
       }
     },
     "skill": {

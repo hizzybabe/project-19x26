@@ -99,9 +99,18 @@ The Milestone 2 baseline is 0.99% clears for an unallocated starter build under 
 
 List every new persisted decision: weapon/equipment slots, skill allocation, automation configuration, affix instances, unlocked content, and any new records. Then design the complete `GameStateV2` and explicit v1 defaults before writing its migrator.
 
+### 9. Simulation step and measurement basis — resolved
+
+Resolved by the owner after the Milestone 2 handoff, before any Milestone 3 implementation:
+
+- The canonical step is **100 ms**, defined once as `COMBAT_TICK_MS` in `src/game/rules.ts`. The UI advances by it and `simulator.ts` defaults to it, so one number is shared by gameplay and measurement.
+- `simulateDungeon`/`simulateBalance` still accept `{ tickMs, maxFightMs }` so any historical or alternative step can be reproduced, because the step visibly moves short-fight durations (8–14% on the two normal rooms).
+- Every accepted target in group 7 must state the step it was measured at.
+- The telegraphed-attack windup loses one step (see `GAME_RULES.md`). The owner chose to keep that as implemented and documented behavior instead of correcting it, because correcting it is a balance change. It is closed unless the balance pass reopens it.
+
 ## Recommended implementation order
 
-1. Approve the eight decision groups above and update `GAME_RULES.md`/`DATA_MODEL.md`.
+1. Approve the eight open decision groups above (group 9 is resolved) and update `GAME_RULES.md`/`DATA_MODEL.md`.
 2. Define v2 types, fixture saves, validator, and v1-to-v2 migration tests.
 3. Extend JSON schemas and content loader for weapon categories, slots, skills, affixes, and enemy mechanics.
 4. Generalize combat damage types and branch mechanics without duplicating formulas in React.

@@ -26,4 +26,18 @@ describe('validated JSON content', () => {
     wrongSlot.items[0].armor = 10
     expect(() => loadContent(wrongSlot)).toThrow('statistic for the wrong slot')
   })
+
+  it('requires a glyph and validates telegraph definitions before gameplay', () => {
+    const missingGlyph = structuredClone(content)
+    delete (missingGlyph.monsters[0] as { glyph?: string }).glyph
+    expect(() => loadContent(missingGlyph)).toThrow('monsters[0].glyph is required')
+
+    const badTelegraph = structuredClone(content)
+    badTelegraph.monsters[4].telegraph!.damageMultiplier = 0
+    expect(() => loadContent(badTelegraph)).toThrow('monsters[4].telegraph.damageMultiplier must be a finite number >= 0.001')
+
+    const unknownKey = structuredClone(content)
+    Object.assign(unknownKey.monsters[4].telegraph!, { extra: 1 })
+    expect(() => loadContent(unknownKey)).toThrow('monsters[4].telegraph.extra is unknown')
+  })
 })

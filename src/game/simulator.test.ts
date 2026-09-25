@@ -19,5 +19,5 @@ describe('deterministic dungeon simulator', () => {
     expect(report.averageGold).toBeGreaterThanOrEqual(0)
     expect(report.averageLoot).toBeGreaterThanOrEqual(0)
     console.info('Greenwood 10,000-seed balance report:', JSON.stringify(report))
-  }, 120_000)
+  }, 900_000)
 })

@@ -56,11 +56,15 @@ An active expedition persists only at stable boundaries:
 
 Combat timers and enemy HP are not durable. Reloading restarts the room from the saved entry state.
 
+Every transition on that record is a pure function in `src/game/expedition.ts`, and React only calls it: `resolveRoomVictory`, `resolveRoomDefeat`, `resolveRoomEvent`, `continueExpedition`, and `retreatExpedition`. Each returns a new `GameState`, never mutates its input, and returns the input unchanged when no expedition is active. `defeatLoss` is shared with the simulator so the death-loss rule has exactly one implementation. This also makes the transitions safe for React to invoke twice, which it does while detecting impure render logic in development.
+
 ## Runtime-only combat data
 
 `DerivedStats` contains Max HP, Max Mana, Armor, same-level Physical mitigation, Arcane Resistance and mitigation, attack damage, attack-speed bonus and interval, Accuracy, Dodge, critical chance, mana regeneration, Item Rarity, carry capacity, and the future-facing Arcane damage multiplier. None are written to `GameState`.
 
 `Enemy.dodge` is an optional runtime field. Newly created enemies explicitly use zero Dodge; combat also treats a missing value as zero so older runtime-shaped data remains safe. Combat state and enemies are not persisted.
+
+`Enemy.glyph` and `Enemy.telegraphProfile` are runtime fields resolved from monster content when an encounter is created. Neither is persisted. A monster with no `telegraph` definition gets no profile and no countdown, and its runtime enemy has no `telegraph`, `telegraphProfile`, or `nextTelegraphMs` keys at all. Combat state and enemies are never written to `GameState`.
 
 ## JSON content identifiers
 
@@ -77,3 +81,7 @@ Validated content collections:
 - `legendary-powers.json`
 
 Milestone 2 now includes these seven JSON collections and a catalog schema. The loader resolves item bases, monster definitions, skill definitions, dungeon rooms, and events at startup. Affix and legendary-power collections are currently empty. Their definitions are content only; v1 saves still store item instances and the existing room-kind array, so no durable schema or save version changed.
+
+Monster definitions require `glyph` and accept an optional `telegraph` object (`name`, `windupMs`, `damageMultiplier`, `intervalMs`, `firstDelayMs`). Movement, art, and behavior display strings therefore live in content rather than in engine code or UI conditionals.
+
+Content JSON field names are not a durable-state contract — only content IDs are. Renaming a content field changes no save and requires no migration, provided the loader and `catalog.schema.json` are updated together and no persisted value referenced it. The `firstTelegraphMs` monster field was replaced by the `telegraph` object under this rule.

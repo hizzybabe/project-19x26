@@ -17,15 +17,16 @@ No server is required.
 | `types.ts` | Persisted and runtime type contracts |
 | `rules.ts` | Pure formulas and derived statistics |
 | `rng.ts` | Seeded pseudo-random number generation |
-| `content-loader.ts` and `data/` | JSON catalog validation, stable IDs, reference checks, and resolved definitions |
+| `content-loader.ts` and `data/` | JSON catalog validation, stable IDs, reference checks, enemy glyphs and telegraph profiles, and resolved definitions |
 | `content.ts` | Resolve starter item instances and level-scaled encounters from the catalog |
 | `loot.ts` | Rarity tables and item generation |
 | `combat.ts` | Combat initialization, ticking, actions, and outcomes |
+| `expedition.ts` | Pure expedition transitions: room victory and rewards, defeat loss, event choices, room advance and extraction, retreat |
 | `state.ts` | New game, leveling, expedition start, and save/load |
 | `migrations.ts` | Shared save parsing, strict validation, serialization, and sequential version migrations |
 | `simulator.ts` | Seeded, pure dungeon runs and aggregate balance measurements using production engine rules |
 | `events.ts` | Typed, transient game-event bus and optional audio adapter |
-| `App.tsx` | UI orchestration and stable-boundary transitions |
+| `App.tsx` | UI orchestration; delegates every state transition to the pure functions above |
 
 ## State flow
 
@@ -52,6 +53,14 @@ The save owns player decisions and durable progress. Combat is deliberately tran
 As the model grows, add `src/game/migrations.ts` and migrate sequentially from each earlier integer version. Never mutate or infer an old save silently inside React components.
 
 Milestone 2 adds that migration boundary without changing the current durable schema. Browser loads, autosave serialization, JSON export, and JSON import all pass through `migrations.ts`. Version 1 is validated and copied losslessly; unsupported future versions and malformed fields are rejected with a path-specific reason. When version 2 is eventually required, add a pure `v1 -> v2` migrator to the ordered migration table before changing the current-version constant.
+
+## Simulation step
+
+Combat has no internal clock of its own: `advanceCombat(state, deltaMs, …)` applies exactly the step the caller passes, and it can apply at most one player attack and one attack per enemy in that step.
+
+The canonical step is `COMBAT_TICK_MS` in `rules.ts`, currently 100 ms. The UI advances by it and `simulator.ts` defaults to it, so a reported fight time describes what a player experiences. `simulateDungeon` and `simulateBalance` still accept `{ tickMs, maxFightMs }` so a run can be reproduced at any step, because the step visibly moves short-fight durations.
+
+Because the step is a caller decision it is a documented measurement parameter rather than a hidden constant: `GAME_RULES.md` records the measured step sensitivity, and Milestone 3 fight-time targets must name the step they were measured at. Do not move the step in one caller only.
 
 ## Content migration
 

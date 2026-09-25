@@ -47,6 +47,9 @@ This source repository is the `PROJECT-19X26-milestone-1` directory, even though
 - Shared strict save validation with field-specific import errors and a sequential migration boundary
 - Unchanged v1 save compatibility; derived statistics remain runtime-only
 - Validated JSON content catalog with starter items, monsters, skills, rooms, and events
+- Enemy glyphs and telegraph profiles resolved from monster content instead of engine constants
+- All expedition transitions (rewards, defeat loss, events, advance, extraction, retreat) as pure engine functions with deterministic tests
+- One canonical 100 ms combat step shared by the UI and the balance simulator
 - Deterministic 10,000-seed dungeon simulation and [balance report](BALANCE_REPORT.md)
 - Keyboard shortcuts 1–5 in combat, labeled progress bars, visible focus, reduced-motion support, and an opt-in sound toggle
 - Responsive retro pixel-RPG interface

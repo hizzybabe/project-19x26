@@ -18,12 +18,12 @@ function makeEnemy(definition: MonsterDefinition, playerLevel: number, instance:
   const maxHp = Math.round(enemyBaseHp(level) * mod.hp)
   return {
     id: `${definition.id}-${instance}`, name: definition.name, level, enemyClass: definition.enemyClass,
-    maxHp, hp: maxHp,
+    glyph: definition.glyph, maxHp, hp: maxHp,
     damage: Math.round(enemyBaseDamage(level) * mod.damage),
     armor: Math.round(enemyBaseArmor(level) * mod.armor),
     dodge: definition.dodge, attackIntervalMs: definition.attackIntervalMs, attackTimerMs: 900,
     xp: Math.round(enemyBaseXp(level) * mod.xp), gold: Math.round(enemyBaseGold(level) * mod.gold),
-    nextTelegraphMs: definition.firstTelegraphMs,
+    ...(definition.telegraph ? { telegraphProfile: structuredClone(definition.telegraph), nextTelegraphMs: definition.telegraph.firstDelayMs } : {}),
   }
 }
 

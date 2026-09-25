@@ -1,7 +1,7 @@
 [
-  {"id":"moss-slime","name":"Moss Slime","enemyClass":"Normal","levelOffset":0,"attackIntervalMs":2200,"dodge":0},
-  {"id":"briar-wolf","name":"Briar Wolf","enemyClass":"Normal","levelOffset":0,"attackIntervalMs":2200,"dodge":0},
-  {"id":"briar-wolf-minion","name":"Briar Wolf","enemyClass":"Minion","levelOffset":0,"attackIntervalMs":2200,"dodge":0},
-  {"id":"thornhide","name":"Thornhide","enemyClass":"Elite","levelOffset":1,"attackIntervalMs":2200,"dodge":0},
-  {"id":"dire-alpha","name":"Dire Alpha","enemyClass":"Boss","levelOffset":2,"attackIntervalMs":1800,"dodge":0,"firstTelegraphMs":9000}
+  {"id":"moss-slime","name":"Moss Slime","enemyClass":"Normal","glyph":"♠","levelOffset":0,"attackIntervalMs":2200,"dodge":0},
+  {"id":"briar-wolf","name":"Briar Wolf","enemyClass":"Normal","glyph":"♟","levelOffset":0,"attackIntervalMs":2200,"dodge":0},
+  {"id":"briar-wolf-minion","name":"Briar Wolf","enemyClass":"Minion","glyph":"♟","levelOffset":0,"attackIntervalMs":2200,"dodge":0},
+  {"id":"thornhide","name":"Thornhide","enemyClass":"Elite","glyph":"♠","levelOffset":1,"attackIntervalMs":2200,"dodge":0},
+  {"id":"dire-alpha","name":"Dire Alpha","enemyClass":"Boss","glyph":"♞","levelOffset":2,"attackIntervalMs":1800,"dodge":0,"telegraph":{"name":"Savage Pounce","windupMs":3000,"damageMultiplier":2.2,"intervalMs":12000,"firstDelayMs":9000}}
 ]

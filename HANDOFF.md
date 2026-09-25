@@ -6,7 +6,7 @@ Treat the directory containing this file as the repository root. In the current 
 
 `E:\work\webmaster\PROJECT-19X26-upload-ready\PROJECT-19X26-milestone-1`
 
-The surrounding `PROJECT-19X26-upload-ready` directory is a historical deployment container containing an older static bundle and the source ZIP. Do not edit that outer bundle as source code, and do not create a replacement scaffold.
+The surrounding `PROJECT-19X26-upload-ready` directory is a deployment container holding this source tree and the original recovery ZIP. An older upload-ready static bundle that it once contained has been retired, so this source tree is now the only copy of the built game; produce the deployable bundle with `npm run build`. Do not create a replacement scaffold.
 
 For an AI coding agent, set this directory as the working directory and give it this instruction:
 
@@ -34,10 +34,10 @@ npm run test:balance
 
 Expected baseline at handoff:
 
-- 5 test files, 36 tests passing.
+- 7 test files, 56 tests passing.
 - Production build succeeds and writes `dist/`.
-- The balance test completes 10,000 deterministic seeded Greenwood runs without invalid runtime or save state.
-- `rg "Math\\.random" src/game` returns no engine usage.
+- The balance test completes 10,000 deterministic seeded Greenwood runs without invalid runtime or save state, and prints the canonical 0.97% baseline at the 100 ms step in about three minutes.
+- `rg "Math\.random" src/game` returns no engine usage.
 
 The local machine used to recover the project had an older system Node. When necessary, tests were run with a compatible Node 24 executable. On another machine, selecting the `.nvmrc` version avoids this issue.
 
@@ -68,6 +68,7 @@ If prose conflicts with tests or code, stop and reconcile the discrepancy explic
 - `src/game/rules.ts`: derived statistics and pure formulas.
 - `src/game/combat.ts`: deterministic combat transitions.
 - `src/game/loot.ts`: deterministic rarity and item generation.
+- `src/game/expedition.ts`: pure expedition transitions and the shared defeat-loss rule; React must not reimplement these.
 - `src/game/rng.ts`: the only random-number source for game outcomes.
 - `src/game/content-loader.ts` and `src/game/data/`: validated content and stable IDs.
 - `src/game/content.ts`: resolves JSON definitions into runtime starter items and enemies.
@@ -109,7 +110,23 @@ When a future feature changes durable state:
 - Enemies support Dodge but currently use zero. Arcane statistics are ready, but no current enemy deals Arcane damage and Staff gameplay is not implemented.
 - Affix and legendary-power JSON collections are intentionally empty.
 - The folder name still says `milestone-1` for historical reasons; package/build version and documentation correctly reflect completed Milestone 2.
+- The balance report is measured at the canonical 100 ms step, which is the same step the UI advances at. The 10,000-seed suite therefore takes about three minutes instead of about twenty seconds. Historic 1,000 ms figures are retained for comparison in `GAME_RULES.md` and `BALANCE_REPORT.md`.
+- Combat is still single-category. `rules.ts` applies the Greatsword factor of 1.25 as a fallback when a weapon has no stored `baseDamage`, and the attack interval constant is the Greatsword interval. Generalizing this is Milestone 3 decision group 1.
+- Region entry text (`Enemies emerge from the Greenwood.`) is hardcoded in `combat.ts`, and the extraction message says `Greenwood cleared!` in `expedition.ts`. A second region needs the dungeon identity in content and, because the expedition record does not store it, in durable state — which means save version 2.
 - The original full design specification beyond the repository documents was not present in the supplied archive. Do not claim undocumented future formulas are authoritative.
+
+## Post-handoff hardening pass
+
+A review-and-hardening pass was applied after the Milestone 2 handoff, before any Milestone 3 work. It changed no balance rule and no durable state.
+
+- Enemy telegraphs are now content data. `monsters.json` gained a required `glyph` and an optional `telegraph` object (`name`, `windupMs`, `damageMultiplier`, `intervalMs`, `firstDelayMs`), replacing `firstTelegraphMs`. `combat.ts` no longer hardcodes the boss telegraph name, windup, interval, or multiplier.
+- `App.tsx` renders `enemy.glyph` instead of branching on `enemy.name.includes('Wolf')`. Display-name conditionals are gone from the UI.
+- All expedition transitions moved into `src/game/expedition.ts` as pure functions: `resolveRoomVictory`, `resolveRoomDefeat`, `resolveRoomEvent`, `continueExpedition`, `retreatExpedition`. React no longer owns reward, loss, event, advance, or extraction logic. `defeatLoss` is shared with the simulator, so the death-loss rule has one implementation. This also makes the transitions safe for React to invoke twice, which it does while detecting impure render logic in development.
+- `equipItem` refuses an item swap whose source entry is missing instead of calling `splice(-1)`, which previously overwrote the last pack entry or destroyed the replaced equipment when the source was empty.
+- The canonical combat step is pinned to 100 ms as `COMBAT_TICK_MS`, used by both the UI and the simulator default. `simulateDungeon`/`simulateBalance` accept `{ tickMs, maxFightMs }`. The measured step sensitivity is recorded in `GAME_RULES.md` and `BALANCE_REPORT.md`.
+- Because the canonical step changed from the 1,000 ms the Milestone 2 report used, the recorded baseline moved from 99 to 97 clears per 10,000 (0.99% to 0.97%) and short-room mean times changed by 8–14%. No formula, coefficient, enemy, or loot table changed. Two independent 100 ms runs, one before and one after the expedition refactor, produced identical reports.
+
+Milestone 3 remains blocked on the decision gate in `MILESTONE_3_SPEC.md` (eight open groups; the simulation-step group is resolved). Do not implement weapon branches, skills, automation, Goblin Warrens, affixes, or save version 2 before those decisions are approved.
 
 ## Before accepting a change
 

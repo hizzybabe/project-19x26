@@ -40,11 +40,20 @@ export interface Equipment {
   armor: Item
 }
 
+export interface TelegraphProfile {
+  name: string
+  windupMs: number
+  damageMultiplier: number
+  intervalMs: number
+  firstDelayMs: number
+}
+
 export interface Enemy {
   id: string
   name: string
   level: number
   enemyClass: EnemyClass
+  glyph: string
   maxHp: number
   hp: number
   damage: number
@@ -55,6 +64,7 @@ export interface Enemy {
   xp: number
   gold: number
   telegraph?: { name: string; remainingMs: number; damageMultiplier: number }
+  telegraphProfile?: TelegraphProfile
   nextTelegraphMs?: number
 }
 

@@ -3,6 +3,12 @@ import type { Character, DerivedStats, Equipment, EnemyClass, Item } from './typ
 export const BASE_ATTACK_INTERVAL_MS = 2150
 export const MIN_ATTACK_INTERVAL_MS = 550
 
+/**
+ * The one canonical combat step. The UI advances by it and the simulator defaults to it, so a
+ * reported fight time describes what a player experiences. See GAME_RULES.md "Simulation step".
+ */
+export const COMBAT_TICK_MS = 100
+
 export const xpRequired = (level: number) => Math.round(100 * level ** 1.55)
 export const baseWeaponDamage = (itemLevel: number) => 10 + 3 * itemLevel + 0.035 * itemLevel ** 2
 export const enemyBaseHp = (level: number) => 35 + 15 * level + 2.2 * level ** 2

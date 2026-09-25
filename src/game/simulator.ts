@@ -1,13 +1,32 @@
 import { advanceCombat, createCombat, useAction } from './combat'
 import { combatSkills, greenwood } from './content-loader'
+import { defeatLoss } from './expedition'
 import { rollDrops } from './loot'
 import { validateGameState } from './migrations'
-import { derivedStats, itemWeight } from './rules'
+import { COMBAT_TICK_MS, derivedStats, itemWeight } from './rules'
 import { addXp, createNewGame } from './state'
 import type { Equipment, GameState } from './types'
 
 export interface DungeonResult { seed: number; outcome: 'cleared' | 'defeated'; roomsCleared: number; fightMs: number[]; gold: number; lootCount: number; finalState: GameState }
 export interface BalanceReport { runs: number; clears: number; defeats: number; clearRate: number; averageFightSeconds: number[]; averageGold: number; averageLoot: number }
+
+export interface SimulationOptions {
+  /** Fixed simulation step in milliseconds. Defaults to the canonical `COMBAT_TICK_MS`. */
+  tickMs?: number
+  /** Elapsed-time ceiling for a single fight before it is reported as a timeout. Defaults to 180,000 ms. */
+  maxFightMs?: number
+}
+
+export const DEFAULT_TICK_MS = COMBAT_TICK_MS
+export const DEFAULT_MAX_FIGHT_MS = 180_000
+
+function resolveOptions(options: SimulationOptions = {}) {
+  const tickMs = options.tickMs ?? DEFAULT_TICK_MS
+  const maxFightMs = options.maxFightMs ?? DEFAULT_MAX_FIGHT_MS
+  if (!Number.isSafeInteger(tickMs) || tickMs < 1) throw new Error('Simulation tickMs must be a positive integer.')
+  if (!Number.isSafeInteger(maxFightMs) || maxFightMs < tickMs) throw new Error('Simulation maxFightMs must be an integer of at least one tick.')
+  return { tickMs, maxFightMs }
+}
 
 function blessedEquipment(equipment: Equipment, blessing?: 'damage' | 'armor'): Equipment {
   const effective = structuredClone(equipment)
@@ -17,8 +36,9 @@ function blessedEquipment(equipment: Equipment, blessing?: 'damage' | 'armor'): 
 }
 
 // Deliberately simple, deterministic test policy; not player-facing combat automation.
-export function simulateDungeon(seed: number): DungeonResult {
+export function simulateDungeon(seed: number, options: SimulationOptions = {}): DungeonResult {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) throw new Error('Simulation seed must be a uint32.')
+  const { tickMs, maxFightMs } = resolveOptions(options)
   const game = createNewGame()
   const run = { hp: derivedStats(game.character, game.equipment).maxHp, mana: derivedStats(game.character, game.equipment).maxMana, potions: 3, seed, gold: 0, loot: [] as GameState['inventory'], blessing: undefined as 'damage' | 'armor' | undefined }
   const fightMs: number[] = []
@@ -31,7 +51,7 @@ export function simulateDungeon(seed: number): DungeonResult {
     else {
       const equipment = blessedEquipment(game.equipment, run.blessing)
       let combat = createCombat(game.character, equipment, roomIndex, run.hp, run.mana, run.potions, run.seed)
-      for (let ticks = 0; combat.status === 'active' && ticks < 180; ticks++) {
+      for (let ticks = 0; combat.status === 'active' && ticks * tickMs < maxFightMs; ticks++) {
         const currentStats = derivedStats(game.character, equipment)
         if (combat.playerHp < currentStats.maxHp * 0.5 && combat.potionCharges && combat.potionCooldownMs <= 0) combat = useAction(combat, 'potion', game.character, equipment)
         if (combat.enemies.some(enemy => enemy.telegraph) && !combat.braceActive && combat.cooldowns.brace <= 0) combat = useAction(combat, 'brace', game.character, equipment)
@@ -39,16 +59,17 @@ export function simulateDungeon(seed: number): DungeonResult {
           const action = combat.enemies.filter(enemy => enemy.hp > 0).length > 1 ? 'cleave' : 'heavy'
           if (combat.playerMana >= combatSkills[action].manaCost && combat.cooldowns[action] <= 0) combat = useAction(combat, action, game.character, equipment)
         }
-        combat = advanceCombat(combat, 1000, game.character, equipment)
+        combat = advanceCombat(combat, tickMs, game.character, equipment)
         if (!Number.isFinite(combat.playerHp) || !Number.isFinite(combat.playerMana) || combat.playerMana > currentStats.maxMana || combat.enemies.some(enemy => !Number.isFinite(enemy.hp))) throw new Error(`Invalid combat state at seed ${seed}, room ${roomIndex}`)
       }
       if (combat.status === 'active') throw new Error(`Combat timeout at seed ${seed}, room ${roomIndex}`)
       fightMs.push(combat.elapsedMs)
       run.seed = combat.seed
       if (combat.status === 'lost') {
+        const loss = defeatLoss(run.loot, run.gold)
         game.records.deaths++
-        game.gold += Math.floor(run.gold * 0.5)
-        game.inventory.push(...run.loot.slice(Math.ceil(run.loot.length * 0.25)))
+        game.gold += loss.gold
+        game.inventory.push(...loss.kept)
         return { seed, outcome: 'defeated', roomsCleared, fightMs, gold: game.gold, lootCount: game.inventory.length, finalState: game }
       }
       run.hp = combat.playerHp
@@ -79,12 +100,12 @@ export function simulateDungeon(seed: number): DungeonResult {
   return { seed, outcome: 'cleared', roomsCleared, fightMs, gold: game.gold, lootCount: game.inventory.length, finalState: game }
 }
 
-export function simulateBalance(runs: number, firstSeed = 1): BalanceReport {
+export function simulateBalance(runs: number, firstSeed = 1, options: SimulationOptions = {}): BalanceReport {
   if (!Number.isSafeInteger(runs) || runs < 1 || !Number.isSafeInteger(firstSeed) || firstSeed < 0 || firstSeed + runs - 1 > 0xffffffff) throw new Error('Invalid simulation range.')
   const times = Array(greenwood.rooms.filter(room => ['combat','elite','boss'].includes(room.kind)).length).fill(0) as number[]
   let clears = 0, gold = 0, loot = 0
   for (let index = 0; index < runs; index++) {
-    const result = simulateDungeon(firstSeed + index)
+    const result = simulateDungeon(firstSeed + index, options)
     validateGameState(result.finalState)
     if (result.outcome === 'cleared') clears++
     gold += result.gold
